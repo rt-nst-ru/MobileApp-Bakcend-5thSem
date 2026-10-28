@@ -41,7 +41,6 @@ export class ConversationService {
    */
   async createConversation(dto: CreateConversationDto, callerId: string) {
     const participantIds = new Set<string>();
-    if (dto.recipient_id) participantIds.add(dto.recipient_id);
     if (dto.participants_ids) {
       for (const id of dto.participants_ids) participantIds.add(id);
     }

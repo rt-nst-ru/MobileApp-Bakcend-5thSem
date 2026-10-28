@@ -34,15 +34,8 @@ export class CreateConversationDto {
   @IsArray()
   @IsMongoId({ each: true })
   participants_ids?: string[];
-
-  @ApiPropertyOptional({
-    description: 'MongoDB ObjectId of a single recipient (convenient shorthand for DM).',
-    example: '64b8f9e2c4a3b12d4e5f6790',
-  })
-  @IsOptional()
-  @IsMongoId()
-  recipient_id?: string;
 }
+
 
 export class ConversationResponseDto {
   @ApiProperty({

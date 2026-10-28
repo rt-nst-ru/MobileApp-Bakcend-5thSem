@@ -62,16 +62,17 @@ export class MessageService {
   async createMessage(dto: CreateMessageDto, senderId: string) {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: dto.conversation_id },
-      include: {
-        users: {
-          select: { id: true, name: true },
-        },
-      },
     });
 
     if (!conversation) {
       throw new NotFoundException(`Conversation '${dto.conversation_id}' not found`);
     }
+
+    // Fetch participant names explicitly — Prisma MongoDB relation joins are unreliable
+    const participants = await this.prisma.user.findMany({
+      where: { id: { in: conversation.participants_ids } },
+      select: { id: true, name: true },
+    });
 
     const defaultStatus: Record<string, { delivered: boolean; read: boolean }> = {};
     for (const participantId of conversation.participants_ids) {
@@ -92,15 +93,20 @@ export class MessageService {
 
     // ─── Interactive Console Logging ──────────────────────────────────────────
     const isDm = conversation.type === 'DM';
-    const senderUser = conversation.users.find((u) => u.id === senderId);
-    const senderName = senderUser?.name ?? 'Unknown';
-    const receiverUsers = conversation.users.filter((u) => u.id !== senderId);
+
+    // Fetch sender separately — sender may not appear in participants lookup if IDs mismatch
+    const senderUser = participants.find((u) => u.id === senderId)
+      ?? await this.prisma.user.findUnique({ where: { id: senderId }, select: { id: true, name: true } });
+
+    const senderName = senderUser?.name ?? `id:${senderId}`;
+    const resolvedSenderId = senderUser?.id ?? senderId;
+    const receiverUsers = participants.filter((u) => u.id !== resolvedSenderId);
 
     const convLabel = isDm
-      ? `DM [${conversation.users.map((u) => colorizeName(u.name)).join(', ')}]`
+      ? `DM [${participants.map((u) => colorizeName(u.name)).join(', ')}]`
       : conversation.name
         ? `Group "${conversation.name}"`
-        : `Group [${conversation.users.map((u) => colorizeName(u.name)).join(', ')}]`;
+        : `Group [${participants.map((u) => colorizeName(u.name)).join(', ')}]`;
 
     const coloredSender = colorizeName(senderName);
     const coloredReceivers =
