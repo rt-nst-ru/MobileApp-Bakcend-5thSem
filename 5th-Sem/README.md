@@ -74,6 +74,21 @@ Creates 5 bot users on startup. Every 10s, **every real user** receives a random
 
 ---
 
+## API Endpoints
+
+> Full request/response details at `http://localhost:3000/docs`
+
+| Method | Path | Intent |
+|--------|------|--------|
+| `GET` | `/user` | List every registered user on the platform — use this to discover who exists before starting a conversation |
+| `GET` | `/user/profile` | Fetch a specific user's profile; omit `user_id` to get your own |
+| `POST` | `/conversation` | Create a new DM or group conversation; the caller is automatically added as a participant. Returns the existing DM if one already exists between the same two users |
+| `GET` | `/conversation` | Fetch all conversations the authenticated user is part of |
+| `POST` | `/message` | Send a message to a conversation |
+| `GET` | `/message` | Fetch the message history for a given conversation |
+
+---
+
 ## Scripts
 
 | Command | Description |

@@ -35,4 +35,21 @@ export class UserController {
     const targetUserId = query.user_id || user.id;
     return this.userService.getProfile(targetUserId);
   }
+
+  @Get()
+  @ApiOperation({
+    summary: 'List all users',
+    description:
+      'Returns every registered user on the platform (id, name, bio). ' +
+      'Useful for discovering users to start conversations with.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Array of all users',
+    type: [UserResponseDto],
+  })
+  @ApiResponse({ status: 401, description: 'Missing or invalid Authorization header' })
+  getAllUsers() {
+    return this.userService.getAllUsers();
+  }
 }

@@ -25,4 +25,19 @@ export class UserService {
 
     return user;
   }
+
+  /**
+   * Returns all users on the platform.
+   * Excludes conversationIds and credentials for privacy.
+   */
+  async getAllUsers() {
+    return this.prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        bio: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
 }
