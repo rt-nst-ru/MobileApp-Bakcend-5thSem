@@ -37,7 +37,8 @@ model Conversation {
 
 model Message {
   id             String       @id @default(auto()) @map("_id") @db.ObjectId
-  content        String
+  content        String?
+  imageInfo      String?
   createdAt      DateTime     @default(now())
   senderId       String       @db.ObjectId
   sender         User         @relation(fields: [senderId], references: [id])

@@ -62,6 +62,8 @@ export class MessageController {
       'Creates a new message in the specified conversation. ' +
       'The sender is identified from the `Authorization: Basic <username>:<password>` header — ' +
       'no sender_id needed in the body. ' +
+      'Send text via `content`, an image via `imageInfo` (Base64 data URI), or both. ' +
+      'At least one of `content` or `imageInfo` must be provided. ' +
       'Delivery/read status is automatically initialized for all participants.',
   })
   @ApiBody({ type: CreateMessageDto })
@@ -72,7 +74,7 @@ export class MessageController {
   })
   @ApiResponse({ status: 401, description: 'Missing or invalid Authorization header' })
   @ApiResponse({ status: 404, description: 'Conversation not found' })
-  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiResponse({ status: 400, description: 'Validation error or missing both content and imageInfo' })
   createMessage(@Body() body: CreateMessageDto, @CurrentUser() user: any) {
     return this.messageService.createMessage(body, user.id);
   }

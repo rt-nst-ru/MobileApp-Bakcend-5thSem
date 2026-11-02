@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMessageDto } from './dto/message.dto';
 import { colorizeName } from '../common/color.util';
@@ -25,6 +25,7 @@ export class MessageService {
       select: {
         id: true,
         content: true,
+        imageInfo: true,
         createdAt: true,
         senderId: true,
         conversationId: true,
@@ -60,12 +61,25 @@ export class MessageService {
    * Logs interactive message detail with deterministic ANSI user colors.
    */
   async createMessage(dto: CreateMessageDto, senderId: string) {
+    // Must have at least content or imageInfo
+    if (!dto.content && !dto.imageInfo) {
+      throw new BadRequestException('Message must contain content or imageInfo');
+    }
+
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: dto.conversation_id },
     });
 
     if (!conversation) {
       throw new NotFoundException(`Conversation '${dto.conversation_id}' not found`);
+    }
+
+    // Auto-prefix raw Base64 strings missing the data URI scheme
+    let normalizedImageInfo: string | null = null;
+    if (dto.imageInfo) {
+      normalizedImageInfo = dto.imageInfo.startsWith('data:')
+        ? dto.imageInfo
+        : `data:image/jpeg;base64,${dto.imageInfo}`;
     }
 
     // Fetch participant names explicitly — Prisma MongoDB relation joins are unreliable
@@ -84,7 +98,8 @@ export class MessageService {
 
     const message = await this.prisma.message.create({
       data: {
-        content: dto.content,
+        content: dto.content ?? null,
+        imageInfo: normalizedImageInfo,
         senderId,
         conversationId: dto.conversation_id,
         status: defaultStatus,
@@ -114,8 +129,13 @@ export class MessageService {
         ? receiverUsers.map((u) => colorizeName(u.name)).join(', ')
         : 'None';
 
+    // Guard: log [IMG] tag instead of raw Base64 to protect terminal
+    const contentLabel = normalizedImageInfo
+      ? (dto.content ? `\x1b[37m${dto.content}\x1b[0m + \x1b[35m[IMG]\x1b[0m` : '\x1b[35m[IMG]\x1b[0m')
+      : `\x1b[37m${dto.content}\x1b[0m`;
+
     this.logger.log(
-      `\x1b[36m[MSG]\x1b[0m \x1b[1m${convLabel}\x1b[0m │ ${coloredSender} \x1b[33m➔\x1b[0m ${coloredReceivers} │ "\x1b[37m${dto.content}\x1b[0m"`,
+      `\x1b[36m[MSG]\x1b[0m \x1b[1m${convLabel}\x1b[0m │ ${coloredSender} \x1b[33m➔\x1b[0m ${coloredReceivers} │ "${contentLabel}"`,
     );
 
     return message;

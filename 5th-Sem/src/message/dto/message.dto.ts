@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsMongoId, IsString, IsOptional, MinLength } from 'class-validator';
+import { IsMongoId, IsString, IsOptional } from 'class-validator';
 
 // ─── Query DTO ────────────────────────────────────────────────────────────────
 
@@ -32,14 +32,23 @@ export class CreateMessageDto {
   @IsMongoId()
   conversation_id: string;
 
-  @ApiProperty({
-    description: 'Text content of the message',
+  @ApiPropertyOptional({
+    description: 'Text content of the message (optional if imageInfo is provided)',
     example: 'Hey, are we meeting tomorrow?',
-    minLength: 1,
   })
+  @IsOptional()
   @IsString()
-  @MinLength(1)
-  content: string;
+  content?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Base64 data URI of an image (e.g. data:image/jpeg;base64,...). ' +
+      'If raw Base64 is sent without the data: prefix, the backend auto-prepends data:image/jpeg;base64,.',
+    example: 'data:image/png;base64,iVBORw0KGgo...',
+  })
+  @IsOptional()
+  @IsString()
+  imageInfo?: string;
 }
 
 // ─── Response DTOs ────────────────────────────────────────────────────────────
@@ -51,11 +60,17 @@ export class MessageResponseDto {
   })
   id: string;
 
-  @ApiProperty({
-    description: 'Text content of the message',
+  @ApiPropertyOptional({
+    description: 'Text content of the message (null for image-only messages)',
     example: 'Hey, are we meeting tomorrow?',
   })
-  content: string;
+  content?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Base64 data URI of the image, directly usable in React Native <Image source={{ uri }} />',
+    example: 'data:image/png;base64,iVBORw0KGgo...',
+  })
+  imageInfo?: string | null;
 
   @ApiProperty({
     description: 'ISO timestamp when the message was created',
