@@ -1,15 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { json, urlencoded } from 'express';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import { JSON_BODY_LIMIT } from './common/base64.util';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bodyParser: false });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Allow large JSON payloads (Base64 images)
-  app.use(json({ limit: '10mb' }));
-  app.use(urlencoded({ extended: true, limit: '10mb' }));
+  // Files are uploaded as base64 inside JSON, so allow bodies larger than the 100 kb default
+  app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
 
   // Global validation pipe — transforms payloads to DTO instances
   app.useGlobalPipes(
@@ -43,6 +43,7 @@ async function bootstrap() {
     .addTag('users', 'User profile operations')
     .addTag('conversations', 'Conversation management')
     .addTag('messages', 'Message CRUD and pagination')
+    .addTag('files', 'Image and file upload (base64) and download')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
