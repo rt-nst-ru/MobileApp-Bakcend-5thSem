@@ -22,6 +22,7 @@ const MESSAGE_SELECT = {
 function toMessageResponse({ file, ...message }: Prisma.MessageGetPayload<{ select: typeof MESSAGE_SELECT }>) {
   return {
     ...message,
+    content: message.content ?? '',
     type: (file?.kind ?? 'TEXT') as 'TEXT' | 'IMAGE' | 'FILE',
     file: file && toFileResponse(file),
   };

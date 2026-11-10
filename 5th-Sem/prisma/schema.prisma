@@ -37,7 +37,7 @@ model Conversation {
 
 model Message {
   id             String       @id @default(auto()) @map("_id") @db.ObjectId
-  content        String
+  content        String?      // empty for an attachment sent without a caption
   createdAt      DateTime     @default(now())
   senderId       String       @db.ObjectId
   sender         User         @relation(fields: [senderId], references: [id])
