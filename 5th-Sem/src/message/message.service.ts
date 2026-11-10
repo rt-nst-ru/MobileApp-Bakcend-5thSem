@@ -1,9 +1,31 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateMessageDto } from './dto/message.dto';
 import { colorizeName } from '../common/color.util';
+import { FILE_SELECT, toFileResponse } from '../file/file.service';
 
 const PAGE_SIZE = 20;
+
+/** The message fields returned by the API, including the attachment's details (never its contents). */
+const MESSAGE_SELECT = {
+  id: true,
+  content: true,
+  createdAt: true,
+  senderId: true,
+  conversationId: true,
+  status: true,
+  file: { select: FILE_SELECT },
+} satisfies Prisma.MessageSelect;
+
+/** Adds `type`: TEXT for plain messages, otherwise IMAGE or FILE from the attachment. */
+function toMessageResponse({ file, ...message }: Prisma.MessageGetPayload<{ select: typeof MESSAGE_SELECT }>) {
+  return {
+    ...message,
+    type: (file?.kind ?? 'TEXT') as 'TEXT' | 'IMAGE' | 'FILE',
+    file: file && toFileResponse(file),
+  };
+}
 
 @Injectable()
 export class MessageService {
@@ -18,20 +40,6 @@ export class MessageService {
    * Returned oldest-first within the page (natural chat order).
    */
   async getMessages(conversationId: string, fromMessageCursor?: string) {
-    const query: any = {
-      where: { conversationId },
-      orderBy: { createdAt: 'desc' },
-      take: PAGE_SIZE,
-      select: {
-        id: true,
-        content: true,
-        createdAt: true,
-        senderId: true,
-        conversationId: true,
-        status: true,
-      },
-    };
-
     if (fromMessageCursor) {
       const cursorMessage = await this.prisma.message.findUnique({
         where: { id: fromMessageCursor },
@@ -39,12 +47,17 @@ export class MessageService {
       if (!cursorMessage) {
         throw new NotFoundException(`Cursor message '${fromMessageCursor}' not found`);
       }
-      query.cursor = { id: fromMessageCursor };
-      query.skip = 1;
     }
 
-    const messages = await this.prisma.message.findMany(query);
-    const sorted = [...messages].reverse();
+    const messages = await this.prisma.message.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: 'desc' },
+      take: PAGE_SIZE,
+      // Start right after the cursor message, if one was given
+      ...(fromMessageCursor && { cursor: { id: fromMessageCursor }, skip: 1 }),
+      select: MESSAGE_SELECT,
+    });
+    const sorted = [...messages].reverse().map(toMessageResponse);
 
     return {
       data: sorted,
@@ -60,6 +73,11 @@ export class MessageService {
    * Logs interactive message detail with deterministic ANSI user colors.
    */
   async createMessage(dto: CreateMessageDto, senderId: string) {
+    // You can only attach a file you uploaded yourself
+    if (dto.file_id && !(await this.prisma.file.count({ where: { id: dto.file_id, uploadedBy: senderId } }))) {
+      throw new NotFoundException(`File '${dto.file_id}' not found in your uploads`);
+    }
+
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: dto.conversation_id },
     });
@@ -84,12 +102,15 @@ export class MessageService {
 
     const message = await this.prisma.message.create({
       data: {
-        content: dto.content,
+        content: dto.content ?? '',
         senderId,
         conversationId: dto.conversation_id,
         status: defaultStatus,
+        fileId: dto.file_id ?? null,
       },
+      select: MESSAGE_SELECT,
     });
+    const response = toMessageResponse(message);
 
     // ─── Interactive Console Logging ──────────────────────────────────────────
     const isDm = conversation.type === 'DM';
@@ -114,10 +135,12 @@ export class MessageService {
         ? receiverUsers.map((u) => colorizeName(u.name)).join(', ')
         : 'None';
 
+    const attachmentLabel = response.file ? `[${response.type} ${response.file.name}] ` : '';
+
     this.logger.log(
-      `\x1b[36m[MSG]\x1b[0m \x1b[1m${convLabel}\x1b[0m │ ${coloredSender} \x1b[33m➔\x1b[0m ${coloredReceivers} │ "\x1b[37m${dto.content}\x1b[0m"`,
+      `\x1b[36m[MSG]\x1b[0m \x1b[1m${convLabel}\x1b[0m │ ${coloredSender} \x1b[33m➔\x1b[0m ${coloredReceivers} │ ${attachmentLabel}"\x1b[37m${response.content}\x1b[0m"`,
     );
 
-    return message;
+    return response;
   }
 }

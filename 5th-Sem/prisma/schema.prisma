@@ -44,6 +44,24 @@ model Message {
   conversationId String       @db.ObjectId
   conversation   Conversation @relation(fields: [conversationId], references: [id])
   status         Json
+  // Optional attachment (image or file). Null for plain text messages.
+  fileId         String?      @db.ObjectId
+  file           File?        @relation(fields: [fileId], references: [id])
 
   @@map("messages")
+}
+
+// An uploaded image or file. Clients send it as base64; it is stored as binary.
+model File {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  mimeType   String
+  size       Int       // size in bytes (decoded, not base64)
+  kind       String    // "IMAGE" | "FILE"
+  data       Bytes
+  uploadedBy String    @db.ObjectId
+  createdAt  DateTime  @default(now())
+  messages   Message[]
+
+  @@map("files")
 }

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsMongoId, IsString, IsOptional, MinLength } from 'class-validator';
+import { IsMongoId, IsString, IsOptional, MinLength, ValidateIf } from 'class-validator';
+import { FileResponseDto } from '../../file/dto/file.dto';
 
 // ─── Query DTO ────────────────────────────────────────────────────────────────
 
@@ -32,14 +33,24 @@ export class CreateMessageDto {
   @IsMongoId()
   conversation_id: string;
 
-  @ApiProperty({
-    description: 'Text content of the message',
+  @ApiPropertyOptional({
+    description:
+      'Text content of the message. Required for text messages; optional (a caption) when file_id is given.',
     example: 'Hey, are we meeting tomorrow?',
     minLength: 1,
   })
+  @ValidateIf((o) => o.file_id === undefined || o.content !== undefined)
   @IsString()
   @MinLength(1)
-  content: string;
+  content?: string;
+
+  @ApiPropertyOptional({
+    description: 'Id of an image or file you uploaded with POST /file',
+    example: '64b8f9e2c4a3b12d4e5f9001',
+  })
+  @IsOptional()
+  @IsMongoId()
+  file_id?: string;
 }
 
 // ─── Response DTOs ────────────────────────────────────────────────────────────
@@ -52,10 +63,24 @@ export class MessageResponseDto {
   id: string;
 
   @ApiProperty({
-    description: 'Text content of the message',
+    description: 'Text content of the message (empty string for an attachment sent without a caption)',
     example: 'Hey, are we meeting tomorrow?',
   })
   content: string;
+
+  @ApiProperty({
+    description: 'TEXT, or IMAGE / FILE when the message has an attachment',
+    enum: ['TEXT', 'IMAGE', 'FILE'],
+    example: 'TEXT',
+  })
+  type: 'TEXT' | 'IMAGE' | 'FILE';
+
+  @ApiPropertyOptional({
+    description: 'The attached file, or null. Get its contents from `downloadUrl`.',
+    type: FileResponseDto,
+    nullable: true,
+  })
+  file: FileResponseDto | null;
 
   @ApiProperty({
     description: 'ISO timestamp when the message was created',
