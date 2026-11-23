@@ -4,6 +4,7 @@ import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { ConversationModule } from './conversation/conversation.module';
 import { MessageModule } from './message/message.module';
+import { FileModule } from './file/file.module';
 import { BotModule } from './bot/bot.module';
 
 const isBotMode = process.env.BOT_MODE === 'true';
@@ -15,6 +16,7 @@ const isBotMode = process.env.BOT_MODE === 'true';
     UserModule,
     ConversationModule,
     MessageModule,
+    FileModule,
     // BotModule only loaded when BOT_MODE=true
     ...(isBotMode ? [BotModule] : []),
   ],
